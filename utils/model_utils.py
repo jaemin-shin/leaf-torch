@@ -44,51 +44,18 @@ def read_dir(data_dir):
 
 def read_data(train_data_dir,test_data_dir):
     train_clients, train_groups, train_data = read_dir(train_data_dir)
-    #print(train_clients)
     test_clients, test_groups, test_data = read_dir(test_data_dir)
-    #print(test_clients)
-    #print(test_data)
 
-    assert train_clients == test_clients
-    assert train_groups == test_groups
+    return train_clients, train_groups, train_data, test_clients, test_groups, test_data
 
-    return train_clients, train_groups, train_data, test_data
-
-def build_net(dataset,model_name,num_classes):
+def build_model(dataset,model_name,num_classes):
     model_file="%s.%s.py" %(dataset,model_name)
     if not os.path.exists(model_file):
         print("Please specify a valid model")
     model_path="%s.%s" %(dataset,model_name)
-    #build net
+    #build model
     mod=importlib.import_module(model_path)
-    build_net_op=getattr(mod,"build_net")#获得mod这个对象的build_net方法
-    net=build_net_op(num_classes)
+    build_model_op=getattr(mod,"build_model")
+    model=build_model_op(num_classes)
 
-
-    return net
-def ravel_model_params(model, grads=False, cuda=False):
-    """
-    Squash model parameters or gradients into a single tensor.
-    """
-    if cuda:
-        m_parameter = torch.Tensor([0]).cuda()
-    else:
-        m_parameter = torch.Tensor([0])
-    for parameter in list(model.parameters()):
-        if grads:
-            m_parameter = torch.cat((m_parameter, parameter.grad.view(-1)))
-        else:
-            m_parameter = torch.cat((m_parameter, parameter.data.view(-1)))
-    return m_parameter[1:]
-def unravel_model_params(model, parameter_update):
-    """
-    Assigns grad_update params to model.parameters.
-    This is done by iterating through model.parameters() and assigning the relevant params in grad_update.
-    NOTE: this function manipulates model.parameters.
-    """
-    current_index = 0  # keep track of where to read from grad_update
-    for p in model.parameters():
-        numel = p.data.numel()
-        size = p.data.size()
-        p.data.copy_(parameter_update[current_index:current_index + numel].view(size))
-        current_index += numel
+    return model
