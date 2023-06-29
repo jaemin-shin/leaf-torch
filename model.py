@@ -36,7 +36,7 @@ class Model(ABC):
                     the model.
         """
         return None, None, None
-    
+
     def update_model(self, weights):
         self.model.load_state_dict(weights)
         self.weights = copy.deepcopy(self.model.state_dict())
@@ -46,7 +46,7 @@ class Model(ABC):
         if a is None or b is None:
             return None
         return {x: a[x] - b[y] for (x, y) in zip(a, b)}
-    
+
     def weights_to_device(self, weights, dtype):
         """Send model weights to device type dtype."""
         return {name: weights[name].to(dtype) for name in weights}
@@ -68,7 +68,7 @@ class Model(ABC):
         for _ in range(num_epochs):
             print("---Epoch %d" % (_))
             self.run_epochs(data, batch_size, device)
-        
+
         self.prev_weights = self.weights
         self.weights = self.model.state_dict()
 

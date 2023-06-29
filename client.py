@@ -22,11 +22,13 @@ class Client:
                 "x": self.preprocess_data_x(test_data["x"]),
                 "y": self.preprocess_data_y(test_data["y"]),
             }
-        
+
         self.device = device
 
     def train(self, num_epoch=1, batch_size=10):
-        return self.num_train_samples, self.model.train(self.train_data, num_epoch, batch_size, self.device)
+        return self.num_train_samples, self.model.train(
+            self.train_data, num_epoch, batch_size, self.device
+        )
 
     def test(self, set_to_use="test"):
         assert set_to_use in ["train", "test", "val"]

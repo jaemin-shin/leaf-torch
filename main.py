@@ -6,7 +6,7 @@ import torch
 
 from client import Client
 from server import Server
-from baseline_constants import MODEL_PARAMS, ACCURACY_KEY, LOSS_KEY
+from baseline_constants import MODEL_PARAMS
 from utils.args import parse_args
 from utils.model_utils import read_data
 
@@ -31,10 +31,6 @@ def main():
     mod = importlib.import_module(client_path)
     ClientModel = getattr(mod, "ClientModel")
 
-    num_rounds = args.num_rounds
-    eval_every = args.eval_every
-    clients_per_round = args.clients_per_round
-
     # get model params
     param_key = "%s.%s" % (args.dataset, args.model)
     model_params = MODEL_PARAMS[param_key]  ###
@@ -49,39 +45,25 @@ def main():
     server = Server(client_model, args.dataset, args.model, num_classes)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(device)
+    print(f"{device=}", file=log_fp, flush=True)
     train_clients, test_clients = setup_clients(args.dataset, client_model, device)
-    print("Total number of train clients: %d" % len(train_clients), file=log_fp, flush=True)
-    print("Total number of test clients: %d" % len(test_clients), file=log_fp, flush=True)
+    print(
+        "Total number of train clients: %d" % len(train_clients),
+        file=log_fp,
+        flush=True,
+    )
+    print(
+        "Total number of test clients: %d" % len(test_clients), file=log_fp, flush=True
+    )
 
     print("--- Random Initialization ---", file=log_fp, flush=True)
     print("---start training")
-    for r in range(num_rounds):
-        print("--- Round %d of %d: Training %d clients ---" % (r, num_rounds - 1, clients_per_round))
-        print(
-            "--- Round %d of %d: Training %d clients ---" % (r, num_rounds - 1, clients_per_round),
-            file=log_fp,
-            flush=True,
-        )
-        server.select_clients(r, train_clients, clients_per_round)
 
-        server.train_model(num_epochs=args.num_epochs, batch_size=args.batch_size)
-        server.update_model()
+    if args.mode == "sync":
+        server.syncFL(train_clients, test_clients, args, log_fp)
+    elif args.mode == "async":
+        server.asyncFL(train_clients, test_clients, args, log_fp)
 
-        if (r + 1) % eval_every == 0 or (r + 1) == num_rounds:
-            metrics = server.test_model(test_clients, set_to_use="test")
-            avg_metrics = average_metrics(metrics)
-            print(
-            "--- Round %d of %d: Testing %d clients --- %s" % (r, num_rounds - 1, len(test_clients), str(avg_metrics)),
-            )
-            print(
-            "--- Round %d of %d: Testing %d clients --- %s" % (r, num_rounds - 1, len(test_clients), str(avg_metrics)),
-            file=log_fp,
-            flush=True,
-            )
-
-    server.save_model(log_dir)
-    log_fp.close()
 
 def setup_clients(dataset, model=None, device="cpu"):
     eval_set = "test"
@@ -95,19 +77,17 @@ def setup_clients(dataset, model=None, device="cpu"):
     if len(test_groups) == 0:
         test_groups = [[] for _ in test_users]
     print("train_user count:", len(train_users), "test_user count:", len(test_users))
-    train_clients = [Client(u, g, train_data[u], None, model, device) for u, g in zip(train_users, train_groups)]
-    test_clients = [Client(u, g, None, test_data[u], model, device) for u, g in zip(test_users, test_groups)]
+    train_clients = [
+        Client(u, g, train_data[u], None, model, device)
+        for u, g in zip(train_users, train_groups)
+    ]
+    test_clients = [
+        Client(u, g, None, test_data[u], model, device)
+        for u, g in zip(test_users, test_groups)
+    ]
+
     return train_clients, test_clients
 
-def average_metrics(metrics):
-    avg_metrics = {ACCURACY_KEY: [], LOSS_KEY: []}
-    for key in metrics:
-        avg_metrics[ACCURACY_KEY].append(metrics[key][ACCURACY_KEY])
-        avg_metrics[LOSS_KEY].append(metrics[key][LOSS_KEY])
-    
-    avg_metrics[ACCURACY_KEY] = np.mean(avg_metrics[ACCURACY_KEY])
-    avg_metrics[LOSS_KEY] = np.mean(avg_metrics[LOSS_KEY])
-    return avg_metrics
 
 if __name__ == "__main__":
     main()
